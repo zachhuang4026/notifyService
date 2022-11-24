@@ -1,9 +1,13 @@
 import pika, sys, os
 import smtplib, ssl
 from email.message import EmailMessage
+import json
 
+from_email = 'foursure1123@gmail.com'
+password = 'anhrwnearhlfaoeg'
+queue_name = 'notification_queue'
 
-def send_mail(to_email, subject, message, from_email='foursure1123@gmail.com'):
+def send_mail(to_email, subject, message):
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = from_email
@@ -13,24 +17,46 @@ def send_mail(to_email, subject, message, from_email='foursure1123@gmail.com'):
     context=ssl.create_default_context()
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com') as server:
-            server.login(from_email, 'anhrwnearhlfaoeg')
+            server.login(from_email, password)
             server.sendmail(from_email, to_email, msg.as_string())
             print("mail successfully sent")
         
     except smtplib.SMTPAuthenticationError:
         print('Login Failed')
 
+def process(request):
+    request_type = request['type']
+    subject = 'Notification from Auction Site'
+    if request_type == 'itemBid':
+        message = 'Your item has been bid on.'
+        send_mail(request['sellerEmail'], subject, message)
+    elif request_type == 'higherBid':
+        message = 'Someone has placed a higher bid on the item you had bid on.'
+        for mail in request['bidderEmail']:
+            send_mail(mail, subject, message)
+    elif request_type == 'matchCriteria':
+        message = 'An item on your watchlist appears matching your criteria.'
+        send_mail(request['userEmail'], subject, message)
+    else:  # endClosed
+        message = 'It is 1 day before bidding ends for your item.'
+        send_mail(request['sellerEmail'], subject, message)
+        message = 'It is 1 day before bidding ends for the item you had bid on.'
+        for mail in request['bidderEmail']:
+            send_mail(mail, subject, message)
+
+
 def main():
     connection = pika.BlockingConnection(pika.ConnectionParameters(host='172.17.0.2'))
     channel = connection.channel()
 
-    channel.queue_declare(queue='notification_queue')
+    channel.queue_declare(queue=queue_name)
 
     def callback(ch, method, properties, body):
         print(" [x] Received %r" % body.decode())
-        send_mail('lleyhan08@gmail.com', 'subject', 'content')  # test
+        request = json.loads(body.decode())
+        process(request)
 
-    channel.basic_consume(queue='notification_queue', on_message_callback=callback, auto_ack=True)
+    channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
 
     print(' [*] Waiting for messages. To exit press CTRL+C')
     channel.start_consuming()
