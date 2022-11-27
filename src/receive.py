@@ -2,10 +2,14 @@ import pika, sys, os
 import smtplib, ssl
 from email.message import EmailMessage
 import json
+import configparser
 
-from_email = 'foursure1123@gmail.com'
-password = 'anhrwnearhlfaoeg'
-queue_name = 'notification_queue'
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+from_email = config['gmail']['account_name']
+password = config['gmail']['password']
+queue_name = config['rabbit_mq']['queue_name']
 
 def send_mail(to_email, subject, message):
     msg = EmailMessage()
@@ -23,6 +27,7 @@ def send_mail(to_email, subject, message):
         
     except smtplib.SMTPAuthenticationError:
         print('Login Failed')
+        raise
 
 def process(request):
     request_type = request['type']
