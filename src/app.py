@@ -6,8 +6,6 @@ from receive import send_mail
 
 app = Flask(__name__)
 
-# Define secret key for encoding/decoding JWT tokens
-# ToDo - move this to env file
 config = configparser.ConfigParser()
 config.read('config.ini')
 
@@ -72,5 +70,5 @@ def send_email():
     response = {'message': 'Email successfully sent', 'status_code': status_code}
     return jsonify(response), status_code
 
-app.run(host='0.0.0.0', port=80)
+app.run(host='0.0.0.0', port=config['rest_server']['port'])
 
